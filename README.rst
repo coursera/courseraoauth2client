@@ -28,13 +28,8 @@ an application at https://accounts.coursera.org/console. When creating the
 application, set the
 ``Redirect URI`` to be ``http://localhost:9876``.
 
-Then put your client id, client secret, and scopes
-in a file at ``~/.coursera/courseraoauth2client.cfg``::
-
-  [oauth2]
-  client_id = YOUR_ID_HERE
-  client_secret = YOUR_SECRET_HERE
-  scopes = YOUR_SCOPES_HERE
+Next, authorize your application by running ``courseraoauth2client configure authorize --app APP``
+where ``APP`` is a disambiguating identifier to be referred to later when making Coursera API calls.
 
 
 Command Line Interface
@@ -47,33 +42,36 @@ The project includes a command line tool. Simply run::
 for a complete list of features, flags, and documentation.
 
 
-config
-^^^^^^
+configure
+^^^^^^^^^
 
 Configures the Coursera OAuth2 client library.
 
 Examples:
- - ``courseraoauth2client config authorize`` Configures the tool to go
-	through the `authorization secret
-	<https://tools.ietf.org/html/rfc6749#section-4.1>`_ flow.
- - ``courseraoauth2client check-auth`` Checks whether the current instance can
-	authorize against Coursera's API server
+ - ``courseraoauth2client configure authorize --app APP``
+
+   Configures the tool to go through the `authorization secret <https://tools.ietf.org/html/rfc6749#section-4.1>`_ flow for application ``APP``.
+ - ``courseraoauth2client configure check-auth --app APP``
+
+   Checks whether the current instance can authorize against Coursera's API server for application ``APP``
 
 Usage
 -----------
 
 ::
 
-	import requests
-	from courseraoauth2client import oauth2
-	...
-	url = 'https://api.coursera.org/api/externalBasicProfiles.v1?q=me&fields=name'
-	auth = oauth2.build_oauth2().build_authorizer()
-	response = requests.get(url, auth=auth)
+  import requests
+  from courseraoauth2client import oauth2
+  ...
+  app = 'my_application_name'
+  url = 'https://api.coursera.org/api/externalBasicProfiles.v1?q=me&fields=name'
+  auth = oauth2.build_oauth2(app=app).build_authorizer()
+  response = requests.get(url, auth=auth)
+  print response.json()
 
-Note the first time, you will need to open your browser and authorize your
-Coursera account information. This information will subsequently be saved in
-the ``~/.coursera/oauth2_cache.pickle`` file.
+If ``my_application_name`` was successfully configured, you will be able to
+successfully make a request. Otherwise, an exception will be thrown telling you
+to set up your application for API access.
 
 Bugs / Issues / Feature Requests
 --------------------------------

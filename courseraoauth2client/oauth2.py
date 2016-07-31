@@ -28,6 +28,7 @@ import os
 import os.path
 import subprocess
 import sys
+import re
 import time
 import urlparse
 import uuid
@@ -49,6 +50,16 @@ class OAuth2Exception(Exception):
 
     def __str__(self):
         return 'OAuth2 Protocol Exception: %(msg)s' % {
+            'msg': self.msg,
+        }
+
+
+class OAuth2ConfigurationException(Exception):
+    def __init__(self, msg):
+        self.msg = msg
+
+    def __str__(self):
+        return 'OAuth2 Configuration Exception. %(msg)s' % {
             'msg': self.msg,
         }
 
@@ -144,7 +155,7 @@ OAUTH2_URL_BASE = 'https://accounts.coursera.org/oauth2/v1/'
 
 class CourseraOAuth2(object):
     '''
-    This class manages the OAuth2 tokens used to access Coursera's APIs.
+    This class manages the OAuth2 tokens used to access Coursera's APIs
 
     You must register your app with Coursera at:
 
@@ -166,10 +177,10 @@ class CourseraOAuth2(object):
                  client_id,
                  client_secret,
                  scopes,
+                 token_cache_file,
                  auth_endpoint=OAUTH2_URL_BASE+'auth',
                  token_endpoint=OAUTH2_URL_BASE+'token',
                  verify_tls=True,
-                 token_cache_file='~/.coursera/oauth2_cache.pickle',
                  local_webserver_port=9876):
 
         self.client_id = client_id
@@ -447,29 +458,41 @@ class CourseraOAuth2(object):
                                   self.token_cache['expires'])
 
 
-def build_oauth2(args=None, cfg=None):
+def build_oauth2(app, args=None, cfg=None):
+    if not app:
+        raise OAuth2ConfigurationException(
+            "Please enter an app name for OAuth2 access")
     if cfg is None:
         cfg = configuration()
+        if not cfg.has_section(app) and not args:
+            raise OAuth2ConfigurationException(
+                'Please configure app "%s" using the `courseraoauth2client` '
+                'command line tool prior to use' % app)
+        elif not cfg.has_section(app) or (args and args.reconfigure):
+            configure_app(app, cfg)
 
     try:
         client_id = args.client_id
     except:
-        client_id = cfg.get('oauth2', 'client_id')
+        client_id = cfg.get(app, 'client_id')
 
     try:
         client_secret = args.client_secret
     except:
-        client_secret = cfg.get('oauth2', 'client_secret')
+        client_secret = cfg.get(app, 'client_secret')
 
     try:
         scopes = args.scopes
     except:
-        scopes = cfg.get('oauth2', 'scopes')
+        scopes = cfg.get(app, 'scopes')
 
     try:
         cache_filename = args.token_cache_file
     except:
-        cache_filename = cfg.get('oauth2', 'token_cache')
+        dirname = cfg.get('oauth2', 'token_cache_base')
+        sanitized_app = re.sub('[^\w\-_\.]', '_', app)
+        filename = '%s_oauth2_cache.pickle' % sanitized_app
+        cache_filename = os.path.join(dirname, filename)
 
     return CourseraOAuth2(
         client_id=client_id,
@@ -479,20 +502,40 @@ def build_oauth2(args=None, cfg=None):
     )
 
 
+def configure_app(app_name, cfg):
+    logging.info('Configuring application "%s"', app_name)
+    cfg.remove_section(app_name)
+    cfg.add_section(app_name)
+    client_id = raw_input('Please enter the client id: ')
+    client_secret = raw_input('Please enter the client secret: ')
+    scopes = raw_input('Please enter the requested scopes of the app not '
+                       'including "view_profile", separated by whitespace:\n')
+    cfg.set(app_name, 'client_id', client_id)
+    cfg.set(app_name, 'client_secret', client_secret)
+    cfg.set(app_name, 'scopes', "view_profile %s" %(scopes))
+    cfg_path = os.path.expanduser('~/.coursera/courseraoauth2client.cfg')
+    with open(cfg_path, 'wb') as configfile:
+        cfg.write(configfile)
+    logging.info('Application "%s" configured!', app_name)
+
+
 def configuration():
     'Loads configuration from the file system.'
     defaults = '''
 [oauth2]
-client_id = NS8qaSX18X_Eu0pyNbLsnA
-client_secret = bUqKqGywnGXEJPFrcd4Jpw
 hostname = localhost
 port = 9876
 api_endpoint = https://api.coursera.org
 auth_endpoint = https://accounts.coursera.org/oauth2/v1/auth
 token_endpoint = https://accounts.coursera.org/oauth2/v1/token
-scopes = view_profile
 verify_tls = True
-token_cache = ~/.coursera/oauth2_cache.pickle
+token_cache_base = ~/.coursera
+
+[manage_graders]
+client_id = NS8qaSX18X_Eu0pyNbLsnA
+client_secret = bUqKqGywnGXEJPFrcd4Jpw
+scopes = view_profile manage_graders
+
 '''
     cfg = ConfigParser.SafeConfigParser()
     cfg.readfp(io.BytesIO(defaults))

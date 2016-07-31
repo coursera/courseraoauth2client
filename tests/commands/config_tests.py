@@ -20,6 +20,7 @@ import argparse
 import cPickle
 import ConfigParser
 from mock import mock_open, MagicMock, patch
+import os
 import time
 
 # Set up mocking of the `open` call. See http://www.ichimonji10.name/blog/6/
@@ -32,14 +33,15 @@ else:
 
 def test_compute_cache_filename_args_override():
     args = argparse.Namespace()
-    args.token_cache_file = '/tmp/cache'
+    args.token_cache_file = '/tmp/cache/override_cache.pickle'
     args.client_id = 'client_id'
     args.client_secret = 'fake-secret'
     args.scopes = 'fake scopes'
     cfg = ConfigParser.ConfigParser()
     cfg.add_section('oauth2')
-    cfg.set('oauth2', 'token_cache', '/tmp/not_cache')
-    assert oauth2.build_oauth2(args, cfg).token_cache_file == '/tmp/cache'
+    cfg.set('oauth2', 'token_cache_base', '/tmp/not_cache')
+    assert oauth2.build_oauth2('my_app', args, cfg)\
+        .token_cache_file == '/tmp/cache/override_cache.pickle'
 
 
 def test_compute_cache_filename():
@@ -49,9 +51,22 @@ def test_compute_cache_filename():
     args.scopes = 'fake scopes'
     cfg = ConfigParser.ConfigParser()
     cfg.add_section('oauth2')
-    cfg.set('oauth2', 'token_cache', '/tmp/configured_cache')
-    assert oauth2.build_oauth2(args, cfg).token_cache_file == \
-        '/tmp/configured_cache'
+    cfg.set('oauth2', 'token_cache_base', '/tmp/cache')
+    assert oauth2.build_oauth2('my_app', args, cfg)\
+        .token_cache_file == '/tmp/cache/my_app_oauth2_cache.pickle'
+
+
+def test_cache_filename_sanitized():
+    args = argparse.Namespace()
+    args.client_id = 'client_id'
+    args.client_secret = 'fake-secret'
+    args.scopes = 'fake scopes'
+    cfg = ConfigParser.ConfigParser()
+    cfg.add_section('oauth2')
+    cfg.set('oauth2', 'token_cache_base', '/tmp/cache')
+    print oauth2.build_oauth2('@weird$app name', args, cfg).token_cache_file
+    assert oauth2.build_oauth2('@weird$app name', args, cfg) \
+        .token_cache_file == '/tmp/cache/_weird_app_name_oauth2_cache.pickle'
 
 
 def test_compute_cache_filname_expanded_path():
@@ -61,9 +76,20 @@ def test_compute_cache_filname_expanded_path():
     args.scopes = 'fake scopes'
     cfg = ConfigParser.ConfigParser()
     cfg.add_section('oauth2')
-    cfg.set('oauth2', 'token_cache', '~/.coursera/oauth2_cache.pickle')
-    computed = oauth2.build_oauth2(args, cfg).token_cache_file
+    cfg.set('oauth2', 'token_cache_base', '~/.coursera')
+    computed = oauth2.build_oauth2('my_app', args, cfg).token_cache_file
     assert '~' not in computed, 'Computed contained "~": %s' % computed
+
+def test_compute_cache_filname_path_no_double_slash():
+    args = argparse.Namespace()
+    args.client_id = 'client_id'
+    args.client_secret = 'fake-secret'
+    args.scopes = 'fake scopes'
+    cfg = ConfigParser.ConfigParser()
+    cfg.add_section('oauth2')
+    cfg.set('oauth2', 'token_cache_base', '~/.coursera/')
+    computed = oauth2.build_oauth2('my_app', args, cfg).token_cache_file
+    assert '//' not in computed, 'Computed contained "//": %s' % computed
 
 
 def test_compute_cache_filname_expanded_path_overrides():
@@ -74,10 +100,10 @@ def test_compute_cache_filname_expanded_path_overrides():
     args.scopes = 'fake scopes'
     cfg = ConfigParser.ConfigParser()
     cfg.add_section('oauth2')
-    cfg.set('oauth2', 'token_cache', '~/.coursera/oauth2_cache.pickle')
-    computed = oauth2.build_oauth2(args, cfg).token_cache_file
+    cfg.set('oauth2', 'token_cache_base', '~/.coursera')
+    computed = oauth2.build_oauth2('my_app', args, cfg).token_cache_file
     assert '~' not in computed, 'Computed contained "~": %s' % computed
-    assert 'override_cache.pickle' in computed, 'Computed was not override!'
+    assert 'override_cache.pickle' in computed, 'Computed was not overridden!'
 
 
 def test_check_cache_types():
@@ -98,7 +124,8 @@ def test_check_cache_types():
 def check_cache_types_impl(
         cache_type,
         should_be_allowed):
-    oauth2_client = oauth2.CourseraOAuth2('id', 'secret', 'fake scopes')
+    oauth2_client = oauth2.CourseraOAuth2(
+        'id', 'secret', 'fake scopes', '/cache.file')
     result = oauth2_client._check_token_cache_type(cache_type)
     assert result == should_be_allowed, \
         'Got %(result)s. Expected: %(expected)s' % {
@@ -145,7 +172,8 @@ def test_build_authorization_url():
     oauth2_client = oauth2.CourseraOAuth2(
         'my_fake_client_id',
         'my_fake_secret',
-        'view_profile')
+        'view_profile',
+        '/cache.file')
 
     state_token = 'my_fake_state_token'
 
@@ -189,6 +217,7 @@ def loading_cache_checker(read_data, expected):
     open_().readlines.return_value = read_data.split('\n')
     open_().readline.side_effect = read_data.split('\n')
     with patch.object(builtins, 'open', open_, create=True):
-        oauth2_instanced = oauth2.CourseraOAuth2('id', 'secret', 'scopes')
-        token_cache = oauth2_instanced.token_cache
+        oauth2_instance = oauth2.CourseraOAuth2(
+            'id', 'secret', 'scopes', '/cache.file')
+        token_cache = oauth2_instance.token_cache
         assert token_cache == expected, 'Token cache was: %s' % token_cache 

@@ -21,6 +21,7 @@ You may install it from source, or via pip.
 """
 
 from courseraoauth2client import oauth2
+import argparse
 import requests
 import logging
 import time
@@ -29,17 +30,20 @@ import sys
 
 def authorize(args):
     """
-    Authorizes Coursera's OAuth2 client for using coursera.org API servers
+    Authorizes Coursera's OAuth2 client for using coursera.org API servers for
+    a specific application
     """
-    oauth2_instance = oauth2.build_oauth2(args)
+    oauth2_instance = oauth2.build_oauth2(args.app, args)
     oauth2_instance.build_authorizer()
+    logging.info('Application "%s" authorized!', args.app)
 
 
 def check_auth(args):
     """
     Checks courseraoauth2client's connectivity to the coursera.org API servers
+    for a specific application
     """
-    oauth2_instance = oauth2.build_oauth2(args)
+    oauth2_instance = oauth2.build_oauth2(args.app, args)
     auth = oauth2_instance.build_authorizer()
     my_profile_url = (
         'https://api.coursera.org/api/externalBasicProfiles.v1?'
@@ -106,22 +110,35 @@ def parser(subparsers):
     parser_config = subparsers.add_parser(
         'configure',
         help='Configure %(prog)s for operation!')
+    app_subparser = argparse.ArgumentParser(add_help=False)
+    app_subparser.add_argument(
+        '--app',
+        required=True,
+        help='Application to configure')
+    app_subparser.add_argument(
+        '--reconfigure',
+        action='store_true',
+        help='Reconfigure existing app?')
+
     config_subparsers = parser_config.add_subparsers()
 
     parser_authorize = config_subparsers.add_parser(
         'authorize',
-        help=authorize.__doc__)
+        help=authorize.__doc__,
+        parents=[app_subparser])
     parser_authorize.set_defaults(func=authorize)
 
     # Ensure your auth is set up correctly
     parser_check_auth = config_subparsers.add_parser(
         'check-auth',
-        help=check_auth.__doc__)
+        help=check_auth.__doc__,
+        parents=[app_subparser])
     parser_check_auth.set_defaults(func=check_auth)
 
     parser_local_cache = config_subparsers.add_parser(
         'display-auth-cache',
-        help=display_auth_cache.__doc__)
+        help=display_auth_cache.__doc__,
+        parents=[app_subparser])
     parser_local_cache.set_defaults(func=display_auth_cache)
     parser_local_cache.add_argument(
         '--no-truncate',
