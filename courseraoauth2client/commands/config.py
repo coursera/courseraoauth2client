@@ -85,7 +85,7 @@ def display_auth_cache(args):
     authentication issues.) BEWARE: DO NOT email the output of this command!!!
     You must keep the tokens secure. Treat them as passwords.
     '''
-    oauth2_instance = oauth2.build_oauth2(args)
+    oauth2_instance = oauth2.build_oauth2(args.app, args)
     if not args.quiet > 0:
         token = oauth2_instance.token_cache['token']
         if not args.no_truncate and token is not None:
@@ -108,7 +108,7 @@ def display_auth_cache(args):
 def parser(subparsers):
     # create the parser for the configure subcommand. (authentication / etc.)
     parser_config = subparsers.add_parser(
-        'configure',
+        'config',
         help='Configure %(prog)s for operation!')
     app_subparser = argparse.ArgumentParser(add_help=False)
     app_subparser.add_argument(

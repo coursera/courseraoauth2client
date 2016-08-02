@@ -28,7 +28,7 @@ an application at https://accounts.coursera.org/console. When creating the
 application, set the
 ``Redirect URI`` to be ``http://localhost:9876``.
 
-Next, authorize your application by running ``courseraoauth2client configure authorize --app APP``
+Next, authorize your application by running ``courseraoauth2client config authorize --app APP``
 where ``APP`` is a disambiguating identifier to be referred to later when making Coursera API calls.
 
 
@@ -42,16 +42,16 @@ The project includes a command line tool. Simply run::
 for a complete list of features, flags, and documentation.
 
 
-configure
-^^^^^^^^^
+config
+^^^^^^
 
 Configures the Coursera OAuth2 client library.
 
 Examples:
- - ``courseraoauth2client configure authorize --app APP``
+ - ``courseraoauth2client config authorize --app APP``
 
    Configures the tool to go through the `authorization secret <https://tools.ietf.org/html/rfc6749#section-4.1>`_ flow for application ``APP``.
- - ``courseraoauth2client configure check-auth --app APP``
+ - ``courseraoauth2client config check-auth --app APP``
 
    Checks whether the current instance can authorize against Coursera's API server for application ``APP``
 
