@@ -51,4 +51,3 @@ def test_set_logging_level_noneSpecified():
     utils.set_logging_level(args)
     assert logging.getLogger().getEffectiveLevel() == logging.INFO or \
         logging.getLogger().getEffectiveLevel() == logging.NOTSET
-

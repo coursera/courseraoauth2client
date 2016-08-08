@@ -80,6 +80,7 @@ def test_compute_cache_filname_expanded_path():
     computed = oauth2.build_oauth2('my_app', args, cfg).token_cache_file
     assert '~' not in computed, 'Computed contained "~": %s' % computed
 
+
 def test_compute_cache_filname_path_no_double_slash():
     args = argparse.Namespace()
     args.client_id = 'client_id'
@@ -220,4 +221,4 @@ def loading_cache_checker(read_data, expected):
         oauth2_instance = oauth2.CourseraOAuth2(
             'id', 'secret', 'scopes', '/cache.file')
         token_cache = oauth2_instance.token_cache
-        assert token_cache == expected, 'Token cache was: %s' % token_cache 
+        assert token_cache == expected, 'Token cache was: %s' % token_cache
