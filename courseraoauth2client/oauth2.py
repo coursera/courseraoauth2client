@@ -512,7 +512,7 @@ def configure_app(app_name, cfg):
                        'including "view_profile", separated by whitespace:\n')
     cfg.set(app_name, 'client_id', client_id)
     cfg.set(app_name, 'client_secret', client_secret)
-    cfg.set(app_name, 'scopes', "view_profile %s" %(scopes))
+    cfg.set(app_name, 'scopes', "view_profile %s" % (scopes))
     cfg_path = os.path.expanduser('~/.coursera/courseraoauth2client.cfg')
     with open(cfg_path, 'wb') as configfile:
         cfg.write(configfile)
