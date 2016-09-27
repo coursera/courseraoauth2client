@@ -26,7 +26,7 @@ Before using Coursera's OAuth2 APIs, be sure you know your client id,
 client secret, and scopes you want for for your application. You may create
 an application at https://accounts.coursera.org/console. When creating the
 application, set the
-``Redirect URI`` to be ``http://localhost:9876``.
+``Redirect URI`` to be ``http://localhost:9876/callback``.
 
 Next, authorize your application by running ``courseraoauth2client config authorize --app APP``
 where ``APP`` is a disambiguating identifier to be referred to later when making Coursera API calls.
