@@ -67,7 +67,7 @@ Usage
   url = 'https://api.coursera.org/api/externalBasicProfiles.v1?q=me&fields=name'
   auth = oauth2.build_oauth2(app=app).build_authorizer()
   response = requests.get(url, auth=auth)
-  print response.json()
+  print(response.json())
 
 If ``my_application_name`` was successfully configured, you will be able to
 successfully make a request. Otherwise, an exception will be thrown telling you

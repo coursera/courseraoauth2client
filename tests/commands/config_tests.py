@@ -17,8 +17,8 @@
 from courseraoauth2client import oauth2
 
 import argparse
-import cPickle
-import ConfigParser
+import pickle
+import configparser
 from mock import mock_open, MagicMock, patch
 import os
 import time
@@ -37,7 +37,7 @@ def test_compute_cache_filename_args_override():
     args.client_id = 'client_id'
     args.client_secret = 'fake-secret'
     args.scopes = 'fake scopes'
-    cfg = ConfigParser.ConfigParser()
+    cfg = configparser.ConfigParser()
     cfg.add_section('oauth2')
     cfg.set('oauth2', 'token_cache_base', '/tmp/not_cache')
     assert oauth2.build_oauth2('my_app', args, cfg)\
@@ -49,7 +49,7 @@ def test_compute_cache_filename():
     args.client_id = 'client_id'
     args.client_secret = 'fake-secret'
     args.scopes = 'fake scopes'
-    cfg = ConfigParser.ConfigParser()
+    cfg = configparser.ConfigParser()
     cfg.add_section('oauth2')
     cfg.set('oauth2', 'token_cache_base', '/tmp/cache')
     assert oauth2.build_oauth2('my_app', args, cfg)\
@@ -61,10 +61,10 @@ def test_cache_filename_sanitized():
     args.client_id = 'client_id'
     args.client_secret = 'fake-secret'
     args.scopes = 'fake scopes'
-    cfg = ConfigParser.ConfigParser()
+    cfg = configparser.ConfigParser()
     cfg.add_section('oauth2')
     cfg.set('oauth2', 'token_cache_base', '/tmp/cache')
-    print oauth2.build_oauth2('@weird$app name', args, cfg).token_cache_file
+    print(oauth2.build_oauth2('@weird$app name', args, cfg).token_cache_file)
     assert oauth2.build_oauth2('@weird$app name', args, cfg) \
         .token_cache_file == '/tmp/cache/_weird_app_name_oauth2_cache.pickle'
 
@@ -74,7 +74,7 @@ def test_compute_cache_filname_expanded_path():
     args.client_id = 'client_id'
     args.client_secret = 'fake-secret'
     args.scopes = 'fake scopes'
-    cfg = ConfigParser.ConfigParser()
+    cfg = configparser.ConfigParser()
     cfg.add_section('oauth2')
     cfg.set('oauth2', 'token_cache_base', '~/.coursera')
     computed = oauth2.build_oauth2('my_app', args, cfg).token_cache_file
@@ -86,7 +86,7 @@ def test_compute_cache_filname_path_no_double_slash():
     args.client_id = 'client_id'
     args.client_secret = 'fake-secret'
     args.scopes = 'fake scopes'
-    cfg = ConfigParser.ConfigParser()
+    cfg = configparser.ConfigParser()
     cfg.add_section('oauth2')
     cfg.set('oauth2', 'token_cache_base', '~/.coursera/')
     computed = oauth2.build_oauth2('my_app', args, cfg).token_cache_file
@@ -99,7 +99,7 @@ def test_compute_cache_filname_expanded_path_overrides():
     args.client_id = 'client_id'
     args.client_secret = 'fake-secret'
     args.scopes = 'fake scopes'
-    cfg = ConfigParser.ConfigParser()
+    cfg = configparser.ConfigParser()
     cfg.add_section('oauth2')
     cfg.set('oauth2', 'token_cache_base', '~/.coursera')
     computed = oauth2.build_oauth2('my_app', args, cfg).token_cache_file
@@ -183,14 +183,14 @@ def test_build_authorization_url():
     expected_url = (
         'https://accounts.coursera.org/oauth2/v1/auth?'
         'access_type=offline&'
-        'state=my_fake_state_token&'
-        'redirect_uri=http%3A%2F%2Flocalhost%3A9876%2Fcallback&'
         'response_type=code&'
         'client_id=my_fake_client_id&'
-        'scope=view_profile'
+        'redirect_uri=http%3A%2F%2Flocalhost%3A9876%2Fcallback&'
+        'scope=view_profile&'
+        'state=my_fake_state_token'
     )
 
-    assert expected_url == actual, 'Got unexpected URL: %s' % actual
+    assert expected_url == actual, 'Got unexpected URL: %s expected: %s' % (actual, expected_url)
 
 
 def test_loading_cache():
@@ -202,10 +202,10 @@ def test_loading_cache():
 
     test_cases = [
         # TODO: figure out why this test isn't working.
-        # ('valid_tokens', cPickle.dumps(valid_tokens), valid_tokens),
-        ('invalid pickle', cPickle.dumps(valid_tokens)[5:], None),
+        # ('valid_tokens', pickle.dumps(valid_tokens), valid_tokens),
+        ('invalid pickle', pickle.dumps(valid_tokens)[5:], None),
         ('garbage', ';lkajsdf;lkjasdlfk;j', None),
-        ('bad object', cPickle.dumps({'weird': 'stuff'}), None),
+        ('bad object', pickle.dumps({'weird': 'stuff'}), None),
     ]
 
     for test_case in test_cases:
@@ -214,9 +214,9 @@ def test_loading_cache():
 
 
 def loading_cache_checker(read_data, expected):
-    open_ = mock_open(read_data=read_data + '\n')
-    open_().readlines.return_value = read_data.split('\n')
-    open_().readline.side_effect = read_data.split('\n')
+    open_ = mock_open(read_data=str(read_data) + '\n')
+    open_().readlines.return_value = str(read_data).split('\n')
+    open_().readline.side_effect = str(read_data).split('\n')
     with patch.object(builtins, 'open', open_, create=True):
         oauth2_instance = oauth2.CourseraOAuth2(
             'id', 'secret', 'scopes', '/cache.file')

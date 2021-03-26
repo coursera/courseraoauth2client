@@ -7,13 +7,13 @@ def readme():
 
 
 setup(name='courseraoauth2client',
-      version='0.0.1',
+      version='0.0.2',
       description='An OAuth2 client for the Coursera App Platform.',
       long_description=readme(),
       classifiers=[
           'Development Status :: 5 - Production/Stable',
           'License :: OSI Approved :: Apache Software License',
-          'Programming Language :: Python :: 2.7',
+          'Programming Language :: Python :: 3.8',
       ],
       keywords='coursera sdk cli tool oauth2',
       url='https://github.com/coursera/courseraoauth2client',

@@ -18,9 +18,9 @@
 Helpers for working with OAuth2 / etc.
 '''
 
-import BaseHTTPServer
-import ConfigParser
-import cPickle
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import configparser
+import pickle
 import logging
 import requests
 import io
@@ -30,7 +30,7 @@ import subprocess
 import sys
 import re
 import time
-import urlparse
+from urllib.parse import urlparse
 import uuid
 from sys import platform as _platform
 
@@ -110,7 +110,7 @@ def _make_handler(state_token, done_function):
     done_function is a function that is called, with the code passed to it.
     '''
 
-    class LocalServerHandler(BaseHTTPServer.BaseHTTPRequestHandler):
+    class LocalServerHandler(BaseHTTPRequestHandler):
 
         def error_response(self, msg):
             logging.warn(
@@ -194,7 +194,7 @@ class CourseraOAuth2(object):
         if not os.path.isfile(self.token_cache_file):
             dir_name = os.path.dirname(self.token_cache_file)
             try:
-                os.makedirs(dir_name, mode=0700)
+                os.makedirs(dir_name, mode=0o0700)
             except:
                 logging.debug(
                     'Encountered an exception creating directory for token '
@@ -233,7 +233,7 @@ class CourseraOAuth2(object):
             logging.debug('About to read from local file cache file %s',
                           self.token_cache_file)
             with open(self.token_cache_file, 'rb') as f:
-                fs_cached = cPickle.load(f)
+                fs_cached = pickle.load(f)
                 if self._check_token_cache_type(fs_cached):
                     logging.debug('Loaded from file system: %s', fs_cached)
                     return fs_cached
@@ -262,7 +262,7 @@ class CourseraOAuth2(object):
             logging.debug('About to write to fs cache file: %s',
                           self.token_cache_file)
             with open(self.token_cache_file, 'wb') as f:
-                cPickle.dump(new_cache, f, protocol=cPickle.HIGHEST_PROTOCOL)
+                pickle.dump(new_cache, f, protocol=pickle.HIGHEST_PROTOCOL)
                 logging.debug('Finished dumping cache_value to fs cache file.')
         except:
             logging.exception(
@@ -541,8 +541,8 @@ client_id = sDHC8Nfp-b1XMbzZx8Wa4w
 client_secret = pgD4adDd7lm-ksfG7UazUA
 scopes = view_profile manage_research_exports
 '''
-    cfg = ConfigParser.SafeConfigParser()
-    cfg.readfp(io.BytesIO(defaults))
+    cfg = configparser.ConfigParser()
+    cfg.readfp(io.StringIO(defaults))
     cfg.read([
         '/etc/coursera/courseraoauth2client.cfg',
         os.path.expanduser('~/.coursera/courseraoauth2client.cfg'),
