@@ -18,9 +18,8 @@
 Helpers for working with OAuth2 / etc.
 '''
 
-import BaseHTTPServer
-import ConfigParser
-import cPickle
+import configparser
+import pickle
 import logging
 import requests
 import io
@@ -30,7 +29,8 @@ import subprocess
 import sys
 import re
 import time
-import urlparse
+from http import server as http_server
+from urllib import parse as urlparse
 import uuid
 from sys import platform as _platform
 
@@ -110,32 +110,47 @@ def _make_handler(state_token, done_function):
     done_function is a function that is called, with the code passed to it.
     '''
 
-    class LocalServerHandler(BaseHTTPServer.BaseHTTPRequestHandler):
+    class LocalServerHandler(http_server.BaseHTTPRequestHandler):
 
         def error_response(self, msg):
-            logging.warn(
-                'Error response: %(msg)s. %(path)s',
-                msg=msg,
-                path=self.path)
+            logging.warning(
+                'Error response: %s. %s',
+                msg,
+                self.path)
             self.send_response(400)
             self.send_header('Content-type', 'text/plain')
             self.end_headers()
-            self.wfile.write(msg)
+            self.wfile.write(msg.encode('utf-8'))
 
         def do_GET(self):
             parsed = urlparse.urlparse(self.path)
+            if parsed.path == '/favicon.ico':
+                # Browsers may request favicon automatically during OAuth
+                # redirect handling; ignore it without warning noise.
+                self.send_response(204)
+                self.end_headers()
+                return
+
             if len(parsed.query) == 0 or parsed.path != '/callback':
                 self.error_response(
                     'We encountered a problem with your request.')
                 return
 
             params = urlparse.parse_qs(parsed.query)
-            if params['state'] != [state_token]:
+            if 'error' in params:
+                self.error_response(
+                    'OAuth2 provider returned an error: %s' %
+                    ','.join(params.get('error')))
+                return
+
+            state_values = params.get('state')
+            if state_values != [state_token]:
                 self.error_response(
                     'Attack detected: state tokens did not match!')
                 return
 
-            if len(params['code']) != 1:
+            code_values = params.get('code')
+            if code_values is None or len(code_values) != 1:
                 self.error_response('Wrong number of "code" query parameters.')
                 return
 
@@ -145,8 +160,8 @@ def _make_handler(state_token, done_function):
             self.wfile.write(
                 "courseraoauth2client: we have captured Coursera's response "
                 "code. Feel free to close this browser window now and return "
-                "to your terminal. Thanks!")
-            done_function(params['code'][0])
+                "to your terminal. Thanks!".encode('utf-8'))
+            done_function(code_values[0])
 
     return LocalServerHandler
 
@@ -194,7 +209,7 @@ class CourseraOAuth2(object):
         if not os.path.isfile(self.token_cache_file):
             dir_name = os.path.dirname(self.token_cache_file)
             try:
-                os.makedirs(dir_name, mode=0700)
+                os.makedirs(dir_name, mode=0o700)
             except:
                 logging.debug(
                     'Encountered an exception creating directory for token '
@@ -233,12 +248,12 @@ class CourseraOAuth2(object):
             logging.debug('About to read from local file cache file %s',
                           self.token_cache_file)
             with open(self.token_cache_file, 'rb') as f:
-                fs_cached = cPickle.load(f)
+                fs_cached = pickle.load(f)
                 if self._check_token_cache_type(fs_cached):
                     logging.debug('Loaded from file system: %s', fs_cached)
                     return fs_cached
                 else:
-                    logging.warn('Found unexpected value in cache. %s',
+                    logging.warning('Found unexpected value in cache. %s',
                                  fs_cached)
                     return None
         except IOError:
@@ -262,7 +277,7 @@ class CourseraOAuth2(object):
             logging.debug('About to write to fs cache file: %s',
                           self.token_cache_file)
             with open(self.token_cache_file, 'wb') as f:
-                cPickle.dump(new_cache, f, protocol=cPickle.HIGHEST_PROTOCOL)
+                pickle.dump(new_cache, f, protocol=pickle.HIGHEST_PROTOCOL)
                 logging.debug('Finished dumping cache_value to fs cache file.')
         except:
             logging.exception(
@@ -280,8 +295,7 @@ class CourseraOAuth2(object):
         '''
         def check_string_value(name):
             return (
-                isinstance(cache_value[name], str) or
-                isinstance(cache_value[name], unicode)
+                isinstance(cache_value[name], str)
             )
 
         def check_refresh_token():
@@ -326,8 +340,7 @@ class CourseraOAuth2(object):
 
         body = response.json()
         if 'access_token' not in body or 'expires_in' not in body:
-            logging.error('Malformed / missing fields in body. %(body)s',
-                          body=body)
+            logging.error('Malformed / missing fields in body. %s', body)
             raise OAuth2Exception(
                 'Malformed response body from token endpoint.')
 
@@ -345,7 +358,7 @@ class CourseraOAuth2(object):
 
         if 'refresh_token' in body:
             refresh = body['refresh_token']
-            if isinstance(refresh, str) or isinstance(refresh, unicode):
+            if isinstance(refresh, str):
                 tokens['refresh'] = refresh
         return tokens
 
@@ -387,15 +400,15 @@ class CourseraOAuth2(object):
             try:
                 subprocess.check_call(['open', authorization_url])
             except:
-                logging.exception('Could not call `open %(url)s`.',
-                                  url=authorization_url)
+                logging.exception('Could not call `open %s`.',
+                                  authorization_url)
 
         if self.local_webserver_port is not None:
             # Boot up a local webserver to retrieve the response.
             server_address = ('', self.local_webserver_port)
             code_holder = CodeHolder()
 
-            local_server = BaseHTTPServer.HTTPServer(
+            local_server = http_server.HTTPServer(
                 server_address,
                 _make_handler(state_token, code_holder))
 
@@ -403,7 +416,7 @@ class CourseraOAuth2(object):
                 local_server.handle_request()
             coursera_code = code_holder.code
         else:
-            coursera_code = raw_input('Please enter the code from Coursera: ')
+            coursera_code = input('Please enter the code from Coursera: ')
 
         form_data = {
             'code': coursera_code,
@@ -490,7 +503,7 @@ def build_oauth2(app, args=None, cfg=None):
         cache_filename = args.token_cache_file
     except:
         dirname = cfg.get('oauth2', 'token_cache_base')
-        sanitized_app = re.sub('[^\w\-_\.]', '_', app)
+        sanitized_app = re.sub(r'[^\w\-_\.]', '_', app)
         filename = '%s_oauth2_cache.pickle' % sanitized_app
         cache_filename = os.path.join(dirname, filename)
 
@@ -506,15 +519,15 @@ def configure_app(app_name, cfg):
     logging.info('Configuring application "%s"', app_name)
     cfg.remove_section(app_name)
     cfg.add_section(app_name)
-    client_id = raw_input('Please enter the client id: ')
-    client_secret = raw_input('Please enter the client secret: ')
-    scopes = raw_input('Please enter the requested scopes of the app not '
-                       'including "view_profile", separated by whitespace:\n')
+    client_id = input('Please enter the client id: ')
+    client_secret = input('Please enter the client secret: ')
+    scopes = input('Please enter the requested scopes of the app not '
+                   'including "view_profile", separated by whitespace:\n')
     cfg.set(app_name, 'client_id', client_id)
     cfg.set(app_name, 'client_secret', client_secret)
     cfg.set(app_name, 'scopes', "view_profile %s" % (scopes))
     cfg_path = os.path.expanduser('~/.coursera/courseraoauth2client.cfg')
-    with open(cfg_path, 'wb') as configfile:
+    with open(cfg_path, 'w') as configfile:
         cfg.write(configfile)
     logging.info('Application "%s" configured!', app_name)
 
@@ -541,8 +554,8 @@ client_id = sDHC8Nfp-b1XMbzZx8Wa4w
 client_secret = pgD4adDd7lm-ksfG7UazUA
 scopes = view_profile manage_research_exports
 '''
-    cfg = ConfigParser.SafeConfigParser()
-    cfg.readfp(io.BytesIO(defaults))
+    cfg = configparser.ConfigParser()
+    cfg.read_file(io.StringIO(defaults))
     cfg.read([
         '/etc/coursera/courseraoauth2client.cfg',
         os.path.expanduser('~/.coursera/courseraoauth2client.cfg'),

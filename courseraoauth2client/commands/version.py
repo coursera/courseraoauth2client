@@ -21,33 +21,22 @@ You may install it from source, or via pip.
 """
 
 import sys
+from importlib.metadata import PackageNotFoundError, version
 
 
 def command_version(args):
-    # See http://stackoverflow.com/questions/17583443
-    from pkg_resources import get_distribution, DistributionNotFound
-    import os.path
-
     try:
-        _dist = get_distribution('courseraoauth2client')
-        # Normalize case for Windows systems
-        dist_loc = os.path.normcase(_dist.location)
-        here = os.path.normcase(__file__)
-        if not here.startswith(os.path.join(dist_loc, 'courseraoauth2client')):
-            # not installed, but there is another version that *is*
-            raise DistributionNotFound
-    except DistributionNotFound:
+        __version__ = version('courseraoauth2client')
+    except PackageNotFoundError:
         __version__ = 'Please install this project with setup.py'
-    else:
-        __version__ = _dist.version
 
     if args.quiet and args.quiet > 0:
-        print __version__
+        print(__version__)
     else:
-        print "Your %(prog)s's version is:\n\t%(version)s" % {
+        print("Your %(prog)s's version is:\n\t%(version)s" % {
             "prog": sys.argv[0],
             "version": __version__
-        }
+        })
 
 
 def parser(subparsers):
